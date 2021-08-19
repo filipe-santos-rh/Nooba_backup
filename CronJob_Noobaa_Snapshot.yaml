@@ -1,0 +1,69 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: ocp4-noobaa-snapshots-cm
+  namespace: openshift-storage
+data:
+  pod-snapshot.sh: |
+    #!/bin/sh
+    oc login --token=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token) https://$KUBERNETES_SERVICE_HOST:$KUBERNETES_SERVICE_PORT --insecure-skip-tls-verify
+    if $(oc get pod noobaa-db-0 -n openshift-storage --no-headers | grep Running > /dev/null 2>&1); then
+        #Set values
+        TIMESTAMP=`date +%Y-%m-%d-%H-%M-%S`
+        VOLUMESNAPSHOTCLASS=`oc get VolumeSnapshotClass --no-headers| grep rbd | awk {'print $1'}`
+        NOOBA_PVC_NAME=`oc get pvc --no-headers | grep nooba | awk {'print $1'}`
+        #Generating the yaml file
+        echo "---
+        apiVersion: snapshot.storage.k8s.io/v1beta1
+        kind: VolumeSnapshot
+        metadata:
+          name: db-noobaa-db-0-snapshot-$TIMESTAMP
+          namespace: openshift-storage
+        spec:
+          volumeSnapshotClassName: $VOLUMESNAPSHOTCLASS
+          source:
+            persistentVolumeClaimName: $NOOBA_PVC_NAME" > /tmp/noobaa_snapshot.yaml
+        #Creating the Snapshot
+        oc apply -f /tmp/noobaa_snapshot.yaml
+        #Wait 5 seconds
+        sleep 5
+        exit 0
+    else
+        echo "The pod is not running, no snapshot to take!"
+        exit 1
+    fi
+---
+kind: CronJob
+apiVersion: batch/v1beta1
+metadata:
+  name: ocp4-noobaa-snapshots
+  namespace: openshift-storage
+spec:
+  schedule: '@hourly'
+  concurrencyPolicy: Allow
+  suspend: false
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccount: snapshot-sa
+          serviceAccountName: snapshot-sa
+          volumes:
+          - name: script
+            configMap:
+              name: ocp4-noobaa-snapshots-cm
+          containers:
+            - name: noobaa-snapshot
+              image: quay.io/openshift/origin-cli:4.7
+              volumeMounts:
+                - name: script
+                  mountPath: /usr/snapshot
+              command:
+              - /bin/sh
+              - /usr/snapshot/pod-snapshot.sh
+              imagePullPolicy: IfNotPresent
+          restartPolicy: OnFailure
+          terminationGracePeriodSeconds: 30
+          dnsPolicy: ClusterFirst
+          securityContext: {}
+          schedulerName: default-scheduler
