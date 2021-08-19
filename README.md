@@ -45,3 +45,5 @@ This repository will be used to store an automation to backup Nooba Database.
 - *If the cronjob executed, review the logs of the cronjob to confirm if there are any errors*  
 
 - *If the cronjob executed successfully, review the volumeSnapshot and confirm it's in ready state*  
+
+[Red Hat article on how to backup and restore Nooba](https://access.redhat.com/solutions/5843261)  
