@@ -4,7 +4,7 @@ This repository will be used to store an automation to backup Nooba Database.
 
 ## Prerequisites
 
-- We assume that you already have OCS or ODF installed and running within the Openshift Cluster 4.6+.  
+- We assume that you already have OCS or ODF version 4.8+ installed and running within the Openshift Cluster 4.8+.  
 
 - Clone the Nooba_Backup repository:  
 `git clone git@github.com:filipe-santos-rh/Nooba_backup.git`  
